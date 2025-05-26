@@ -1,25 +1,18 @@
-FROM node:18.18-alpine
-
-# Install necessary build tools and dependencies
-RUN apk add --no-cache python3 make g++ git
+FROM node:18.18
 
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package files first
 COPY package*.json ./
 
-# Copy prisma schema for generation
-COPY prisma ./prisma/
-
-# Install dependencies
-RUN npm config set registry https://registry.npmjs.org/ && \
-    NODE_ENV=development npm install --verbose
-
-# Generate Prisma client
-RUN npx prisma generate
+# Install dependencies with specific flags to handle Prisma
+RUN npm install --no-optional --legacy-peer-deps
 
 # Copy the rest of the application
 COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate
 
 # Build the application
 RUN npm run build
