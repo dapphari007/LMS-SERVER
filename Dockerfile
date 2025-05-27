@@ -111,4 +111,4 @@ ENV PGSSLMODE=require
 
 # Start the application using the wait-for-db script
 ENTRYPOINT ["/app/wait-for-db.sh"]
-CMD ["node", "server.js"]
+CMD ["node", "dist/server.js"]

@@ -7,7 +7,7 @@
   "deploy": {
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
-    "healthcheckPath": "/",
+    "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300,
     "envVars": [
       {
@@ -59,9 +59,9 @@
         "value": "https://lms-client-production.up.railway.app"
       }
     ],
-    "startCommand": "node server.js",
+    "startCommand": "node dist/server.js",
     "numReplicas": 1,
-    "preStartCommand": "node railway-db-fix.js"
+    "preStartCommand": "node dist/scripts/init-railway-db.js || true"
   },
   "env": {
     "PG_CUSTOM_PARAMS": "false"
