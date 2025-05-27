@@ -83,6 +83,38 @@ const server = http.createServer(async (req, res) => {
         
         if (!process.env.DATABASE_URL) {
           console.error('DATABASE_URL is not set!');
+          
+          // For testing purposes, if we're in development mode, return a mock response
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('Development mode detected, returning mock response');
+            
+            if (email === 'admin@example.com' && password === 'admin123') {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ 
+                status: 'success',
+                message: 'Login successful (MOCK)',
+                token: 'mock-jwt-token-for-testing-purposes-only',
+                user: {
+                  id: 1,
+                  email: 'admin@example.com',
+                  firstName: 'Admin',
+                  lastName: 'User',
+                  role: 'admin',
+                  roleId: 1,
+                  isActive: true
+                }
+              }));
+              return;
+            } else {
+              res.writeHead(401, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ 
+                status: 'error',
+                message: 'Invalid email or password (MOCK)'
+              }));
+              return;
+            }
+          }
+          
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ 
             status: 'error',
