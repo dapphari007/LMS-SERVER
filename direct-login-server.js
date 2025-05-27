@@ -79,11 +79,24 @@ const server = http.createServer(async (req, res) => {
         
         // Connect to the database
         console.log('Connecting to database...');
+        console.log('DATABASE_URL first 15 chars:', process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 15) + '...' : 'not set');
+        
+        if (!process.env.DATABASE_URL) {
+          console.error('DATABASE_URL is not set!');
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            status: 'error',
+            message: 'Database connection string is not configured'
+          }));
+          return;
+        }
+        
         const client = new Client({
           connectionString: process.env.DATABASE_URL,
           ssl: {
             rejectUnauthorized: false
-          }
+          },
+          connectionTimeoutMillis: 10000 // 10 second timeout
         });
         
         try {
@@ -196,8 +209,8 @@ const server = http.createServer(async (req, res) => {
   }));
 });
 
-// Get port from environment variable or use 3000 as default
-const port = process.env.PORT || 3000;
+// Use a different port for the direct login server to avoid conflicts
+const port = process.env.DIRECT_LOGIN_PORT || 3001;
 
 // Start the server
 server.listen(port, '0.0.0.0', () => {

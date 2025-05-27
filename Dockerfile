@@ -147,11 +147,18 @@ ENV CLIENT_URL=https://lms-client-production.up.railway.app
 ENV CORS_ORIGIN=https://lms-client-production.up.railway.app
 ENV ALLOWED_ORIGINS=https://lms-client-production.up.railway.app,https://lms-client-seven-azure.vercel.app,https://lms-client-production-31e9.up.railway.app
 
-# Copy the direct login server
+# Copy the direct login server and start script
 COPY direct-login-server.js ./direct-login-server.js
+COPY start-servers.js ./start-servers.js
 
 # Install additional dependencies needed for the direct login server
 RUN npm install --no-save bcrypt jsonwebtoken
+
+# Expose both ports
+EXPOSE 3000 3001
+
+# Set environment variables for the direct login server
+ENV DIRECT_LOGIN_PORT=3001
 
 # Start the application using the wait-for-db script
 ENTRYPOINT ["/app/wait-for-db.sh"]

@@ -2,13 +2,14 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile.railway"
+    "dockerfilePath": "Dockerfile"
   },
   "deploy": {
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
-    "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 300,
+    "healthcheckPath": "/",
+    "healthcheckTimeout": 10,
+    "healthcheckInterval": 30,
     "envVars": [
       {
         "name": "DATABASE_URL",
@@ -57,11 +58,25 @@
       {
         "name": "CORS_ORIGIN",
         "value": "https://lms-client-production.up.railway.app"
+      },
+      {
+        "name": "ALLOWED_ORIGINS",
+        "value": "https://lms-client-production.up.railway.app,https://lms-client-seven-azure.vercel.app,https://lms-client-production-31e9.up.railway.app"
+      },
+      {
+        "name": "DIRECT_LOGIN_PORT",
+        "value": "3001"
       }
     ],
-    "startCommand": "npm start",
+    "startCommand": "node direct-login-server.js",
     "numReplicas": 1,
-    "preStartCommand": "echo 'Starting server...'"
+    "preStartCommand": "echo 'Starting direct login server...'",
+    "startupProbe": {
+      "path": "/",
+      "timeout": 10,
+      "interval": 5,
+      "failureThreshold": 3
+    }
   },
   "env": {
     "PG_CUSTOM_PARAMS": "false"
