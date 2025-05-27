@@ -46,6 +46,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/.env ./.env
+COPY --from=builder /app/server.js ./server.js
 # Copy scripts individually to avoid wildcard issues
 COPY --from=builder /app/dist/scripts/init-railway-db.js ./dist/scripts/
 
@@ -141,4 +142,4 @@ ENV ALLOWED_ORIGINS=https://lms-client-production.up.railway.app
 
 # Start the application using the wait-for-db script
 ENTRYPOINT ["/app/wait-for-db.sh"]
-CMD ["node", "dist/server.js"]
+CMD ["node", "server.js"]
