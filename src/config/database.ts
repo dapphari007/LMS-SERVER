@@ -6,9 +6,14 @@ import logger from "../utils/logger";
 
 // Create DataSource configuration based on environment
 const getDataSourceConfig = () => {
+  // Force load environment variables
+  require('dotenv').config();
+  
   // Check if DATABASE_URL is provided (Railway and other platforms provide this)
   if (process.env.DATABASE_URL) {
     console.log("Using DATABASE_URL for connection");
+    console.log("DATABASE_URL starts with:", process.env.DATABASE_URL.substring(0, 15) + "...");
+    
     return {
       type: "postgres",
       url: process.env.DATABASE_URL,
@@ -26,6 +31,38 @@ const getDataSourceConfig = () => {
         idleTimeoutMillis: 30000 // How long a client is allowed to remain idle before being closed
       }
     };
+  } else {
+    console.log("DATABASE_URL not found, using individual connection parameters");
+    console.log("DB_HOST:", config.database.host);
+    console.log("DB_PORT:", config.database.port);
+    
+    // For Railway deployment, if DATABASE_URL is not set but we're in production,
+    // try to construct it from the Railway PostgreSQL environment variables
+    if (process.env.NODE_ENV === 'production' && 
+        process.env.PGHOST && process.env.PGDATABASE && 
+        process.env.PGUSER && process.env.PGPASSWORD) {
+      
+      console.log("Constructing DATABASE_URL from Railway PostgreSQL environment variables");
+      const constructedUrl = `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE}`;
+      console.log("Constructed URL starts with:", constructedUrl.substring(0, 15) + "...");
+      
+      return {
+        type: "postgres",
+        url: constructedUrl,
+        synchronize: false,
+        logging: true,
+        entities: [path.join(__dirname, "../models/**/*.{ts,js}")],
+        migrations: [path.join(__dirname, "../migrations/**/*.{ts,js}")],
+        subscribers: [path.join(__dirname, "../subscribers/**/*.{ts,js}")],
+        cache: false,
+        ssl: { rejectUnauthorized: false },
+        extra: {
+          max: 20,
+          connectionTimeoutMillis: 10000,
+          idleTimeoutMillis: 30000
+        }
+      };
+    }
   }
   
   // Fallback to individual connection parameters
@@ -37,7 +74,7 @@ const getDataSourceConfig = () => {
     password: config.database.password,
     database: config.database.database,
     synchronize: false, // Disable auto-synchronization to prevent data loss
-    logging: false, // Disable SQL logging
+    logging: true, // Enable SQL logging for debugging
     entities: [path.join(__dirname, "../models/**/*.{ts,js}")],
     migrations: [path.join(__dirname, "../migrations/**/*.{ts,js}")],
     subscribers: [path.join(__dirname, "../subscribers/**/*.{ts,js}")],

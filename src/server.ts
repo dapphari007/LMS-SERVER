@@ -1,4 +1,12 @@
 import "reflect-metadata";
+// Force set DATABASE_URL for Railway deployment
+try {
+  require('./scripts/set-db-url');
+  console.log('DATABASE_URL has been set manually');
+} catch (error) {
+  console.error('Error setting DATABASE_URL manually:', error);
+}
+
 import Hapi from "@hapi/hapi";
 import Joi from "joi";
 import { registerPlugins } from "./plugins";

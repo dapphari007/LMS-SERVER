@@ -11,6 +11,9 @@ RUN npm install
 # Copy the rest of the application
 COPY . .
 
+# Copy the Railway-specific .env file
+COPY .env.railway .env
+
 # Generate Prisma client
 RUN npx prisma generate
 
@@ -24,6 +27,7 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
+# Note: DATABASE_URL will be injected by Railway from the environment
 
-# Start the application
-CMD ["npm", "start"]
+# Start the application using the Railway-specific start script
+CMD ["node", "railway-start.js"]
