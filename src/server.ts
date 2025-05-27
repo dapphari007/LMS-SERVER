@@ -37,24 +37,79 @@ import { initializeSystem } from "./scripts/initializeSystem";
 
 const init = async () => {
   try {
-    // Initialize database connection with retry mechanism
-    let retries = 5;
-    while (retries > 0) {
-      try {
-        await initializeDatabase();
-        logger.info("Database connected successfully");
-        break;
-      } catch (error) {
-        retries--;
-        if (retries === 0) {
-          throw error;
+    // Create Hapi server first so we can start it even if database connection fails
+    // Railway sets PORT environment variable, so use that if available
+    const port = process.env.PORT || config.server.port;
+    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : config.server.host;
+    
+    console.log(`Starting server on ${host}:${port} in ${process.env.NODE_ENV} mode`);
+    
+    const server = Hapi.server({
+      port: port,
+      host: host,
+      routes: {
+        cors: {
+          origin: process.env.NODE_ENV === 'production' 
+            ? ['*'] // In production, allow all origins (you can restrict this to your specific Railway domains)
+            : ["http://localhost:5173"], // In development, allow the Vite dev server
+          credentials: true,
+          additionalHeaders: ["Authorization", "Content-Type"],
+          additionalExposedHeaders: ["Authorization"],
+          maxAge: 86400, // 24 hours
+        },
+        validate: {
+          failAction: async (request, h, err) => {
+            const error = err as Error;
+            if (process.env.NODE_ENV === "production") {
+              // In production, log the error but return a generic message
+              logger.error(
+                `Validation error: ${error?.message || "Unknown error"}`
+              );
+              throw new Error(`Invalid request payload input`);
+            } else {
+              // During development, log and respond with the full error
+              logger.error(
+                `Validation error: ${error?.message || "Unknown error"}`
+              );
+              throw error;
+            }
+          },
+        },
+      },
+    });
+    
+    // Register plugins
+    await registerPlugins(server);
+    
+    // Register routes (including health check routes)
+    registerRoutes(server);
+    
+    // Start the server before attempting database connection
+    await server.start();
+    logger.info(`Server running on ${server.info.uri}`);
+    
+    // Initialize database connection with retry mechanism in the background
+    // This allows the health check to respond even if the database is not yet connected
+    (async () => {
+      let retries = 5;
+      while (retries > 0) {
+        try {
+          await initializeDatabase();
+          logger.info("Database connected successfully");
+          break;
+        } catch (error) {
+          retries--;
+          if (retries === 0) {
+            logger.error("All database connection attempts failed");
+            // Don't throw error here, just log it
+          }
+          logger.warn(
+            `Database connection failed, retrying... (${retries} attempts left)`
+          );
+          await new Promise((resolve) => setTimeout(resolve, 3000)); // Wait 3 seconds before retrying
         }
-        logger.warn(
-          `Database connection failed, retrying... (${retries} attempts left)`
-        );
-        await new Promise((resolve) => setTimeout(resolve, 3000)); // Wait 3 seconds before retrying
       }
-    }
+    })();
 
     // Setup default data
     try {
@@ -96,52 +151,7 @@ const init = async () => {
       throw error;
     }
 
-    // Create Hapi server
-    // Railway sets PORT environment variable, so use that if available
-    const port = process.env.PORT || config.server.port;
-    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : config.server.host;
-    
-    console.log(`Starting server on ${host}:${port} in ${process.env.NODE_ENV} mode`);
-    
-    const server = Hapi.server({
-      port: port,
-      host: host,
-      routes: {
-        cors: {
-          origin: process.env.NODE_ENV === 'production' 
-            ? ['*'] // In production, allow all origins (you can restrict this to your specific Railway domains)
-            : ["http://localhost:5173"], // In development, allow the Vite dev server
-          credentials: true,
-          additionalHeaders: ["Authorization", "Content-Type"],
-          additionalExposedHeaders: ["Authorization"],
-          maxAge: 86400, // 24 hours
-        },
-        validate: {
-          failAction: async (request, h, err) => {
-            const error = err as Error;
-            if (process.env.NODE_ENV === "production") {
-              // In production, log the error but return a generic message
-              logger.error(
-                `Validation error: ${error?.message || "Unknown error"}`
-              );
-              throw new Error(`Invalid request payload input`);
-            } else {
-              // During development, log and respond with the full error
-              logger.error(
-                `Validation error: ${error?.message || "Unknown error"}`
-              );
-              throw error;
-            }
-          },
-        },
-      },
-    });
-
-    // Register plugins
-    await registerPlugins(server);
-
-    // Register routes
-    registerRoutes(server);
+    // Server is already created and routes are registered above
 
     // Run migrations if needed with improved error handling
     try {
@@ -418,9 +428,7 @@ const init = async () => {
       }
     }, 30000); // Check every 30 seconds
 
-    // Start server
-    await server.start();
-    logger.info(`Server running on ${server.info.uri}`);
+    // Server is already started above
     
     // Run comprehensive system initialization
     try {

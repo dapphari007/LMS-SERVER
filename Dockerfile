@@ -29,5 +29,5 @@ ENV PORT=3000
 ENV HOST=0.0.0.0
 # Note: DATABASE_URL will be injected by Railway from the environment
 
-# Start the application using the Railway-specific start script
-CMD ["node", "railway-start.js"]
+# Start the application using the simple server (which will try to start the main app)
+CMD ["node", "server.js"]
