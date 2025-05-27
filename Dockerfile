@@ -28,7 +28,7 @@ RUN mkdir -p dist/scripts
 RUN cp -r src/scripts/*.js dist/scripts/ || echo "No JS scripts to copy"
 
 # Copy the database initialization script
-COPY src/scripts/init-railway-db.js dist/scripts/
+RUN cp src/scripts/init-railway-db.js dist/scripts/ || echo "Could not copy init-railway-db.js"
 
 # Create a minimal production image
 FROM node:18.18-slim
@@ -47,7 +47,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/.env ./.env
 # Copy scripts individually to avoid wildcard issues
-COPY --from=builder /app/src/scripts/init-railway-db.js ./dist/scripts/
+COPY --from=builder /app/dist/scripts/init-railway-db.js ./dist/scripts/
 
 # Create a script to wait for the database
 RUN echo '#!/bin/bash \n\
