@@ -49,6 +49,14 @@
       {
         "name": "DEBUG",
         "value": "true"
+      },
+      {
+        "name": "CLIENT_URL",
+        "value": "https://lms-client-production.up.railway.app"
+      },
+      {
+        "name": "CORS_ORIGIN",
+        "value": "https://lms-client-production.up.railway.app"
       }
     ],
     "startCommand": "node server.js",

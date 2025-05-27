@@ -65,6 +65,7 @@ const init = async () => {
             ? [
                 'https://lms-client-seven-azure.vercel.app', // Your Vercel app domain
                 'https://*.vercel.app', // Allow all subdomains for preview deployments
+                process.env.CLIENT_URL || 'https://your-client-app-name.up.railway.app', // Railway client URL
                 process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []
               ].flat() 
             : ["http://localhost:5173"], // In development, allow the Vite dev server
