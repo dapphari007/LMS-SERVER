@@ -52,6 +52,10 @@
       }
     ],
     "startCommand": "node server.js",
-    "numReplicas": 1
+    "numReplicas": 1,
+    "preStartCommand": "node railway-db-fix.js"
+  },
+  "env": {
+    "PG_CUSTOM_PARAMS": "false"
   }
 }

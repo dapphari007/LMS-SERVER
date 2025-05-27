@@ -38,6 +38,7 @@ attempt=0 \n\
 \n\
 # Try internal connection first (preferred for Railway)\n\
 echo "Trying internal Railway connection..."\n\
+# Make sure there are no newline characters in the database name\n\
 internal_url="postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@postgres.railway.internal:5432/railway"\n\
 \n\
 while [ $attempt -lt $max_attempts ]; do \n\
@@ -62,6 +63,7 @@ done \n\
 # If internal connection failed, try external connection\n\
 if [ $attempt -eq 10 ]; then\n\
   echo "Trying external Railway connection..."\n\
+  # Make sure there are no newline characters in the database name\n\
   external_url="postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@maglev.proxy.rlwy.net:31901/railway"\n\
   attempt=0\n\
   \n\
@@ -97,11 +99,12 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
 # Set database environment variables directly in the Dockerfile as a fallback
-ENV DATABASE_URL=postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@postgres.railway.internal:5432/railway
-ENV DATABASE_PUBLIC_URL=postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@maglev.proxy.rlwy.net:31901/railway
-ENV PGHOST=postgres.railway.internal
-ENV PGPORT=5432
-ENV PGDATABASE=railway
+# Make sure there are no newline characters in the database name
+ENV DATABASE_URL="postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@postgres.railway.internal:5432/railway"
+ENV DATABASE_PUBLIC_URL="postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@maglev.proxy.rlwy.net:31901/railway"
+ENV PGHOST="postgres.railway.internal"
+ENV PGPORT="5432"
+ENV PGDATABASE="railway"
 ENV PGUSER=postgres
 ENV PGPASSWORD=DDzRHavWnatSRwZKlrPRQQfphjKRHEna
 ENV PGSSLMODE=require

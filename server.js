@@ -84,6 +84,21 @@ const testDatabaseConnection = async () => {
     // Use a simple pg client to test the connection
     const { Client } = require('pg');
     
+    // Clean the DATABASE_URL to ensure no newline characters in the database name
+    try {
+      const url = new URL(process.env.DATABASE_URL);
+      const pathParts = url.pathname.split('/');
+      if (pathParts.length > 1) {
+        const dbName = pathParts[1].trim(); // Remove any whitespace including newlines
+        pathParts[1] = dbName;
+        url.pathname = pathParts.join('/');
+        process.env.DATABASE_URL = url.toString();
+        console.log('Cleaned DATABASE_URL to remove any newline characters in database name');
+      }
+    } catch (error) {
+      console.error('Error cleaning DATABASE_URL:', error.message);
+    }
+    
     console.log('Database URL starts with:', process.env.DATABASE_URL.substring(0, 15) + '...');
     console.log('Attempting to connect to PostgreSQL database...');
     
@@ -146,7 +161,10 @@ const startMainApplication = async () => {
       const pgUser = process.env.PGUSER;
       const pgPassword = process.env.PGPASSWORD;
       
-      process.env.DATABASE_URL = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}`;
+      // Make sure there are no newline characters in the database name
+      const cleanPgDatabase = pgDatabase.trim();
+      
+      process.env.DATABASE_URL = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${cleanPgDatabase}`;
       console.log('Created DATABASE_URL from individual PostgreSQL environment variables');
     } else {
       // Last resort fallback - use the known Railway internal URL
@@ -167,6 +185,21 @@ const startMainApplication = async () => {
       console.log('Updated DATABASE_URL to use internal Railway hostname');
       console.log('New DATABASE_URL first 15 chars:', process.env.DATABASE_URL.substring(0, 15) + '...');
     }
+    
+    // Clean the DATABASE_URL to remove any newline characters in the database name
+    try {
+      const url = new URL(process.env.DATABASE_URL);
+      const pathParts = url.pathname.split('/');
+      if (pathParts.length > 1) {
+        const dbName = pathParts[1].trim(); // Remove any whitespace including newlines
+        pathParts[1] = dbName;
+        url.pathname = pathParts.join('/');
+        process.env.DATABASE_URL = url.toString();
+        console.log('Cleaned DATABASE_URL to remove any newline characters in database name');
+      }
+    } catch (error) {
+      console.error('Error cleaning DATABASE_URL:', error.message);
+    }
   }
   
   // Ensure we're using standard PostgreSQL connection parameters
@@ -179,9 +212,17 @@ const startMainApplication = async () => {
       // Remove any query parameters that might cause issues
       url.search = '';
       
+      // Clean the database name part to remove any newline characters
+      const pathParts = url.pathname.split('/');
+      if (pathParts.length > 1) {
+        const dbName = pathParts[1].trim(); // Remove any whitespace including newlines
+        pathParts[1] = dbName;
+        url.pathname = pathParts.join('/');
+      }
+      
       // Update the DATABASE_URL with the cleaned version
       if (url.toString() !== process.env.DATABASE_URL) {
-        console.log('Cleaned DATABASE_URL to remove custom parameters');
+        console.log('Cleaned DATABASE_URL to remove custom parameters and fix database name');
         process.env.DATABASE_URL = url.toString();
       }
     } catch (error) {
