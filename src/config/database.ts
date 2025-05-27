@@ -25,11 +25,22 @@ const getDataSourceConfig = () => {
   // Check if DATABASE_URL is provided (Railway and other platforms provide this)
   if (process.env.DATABASE_URL) {
     console.log("Using DATABASE_URL for connection");
-    console.log("DATABASE_URL starts with:", process.env.DATABASE_URL.substring(0, 15) + "...");
+    
+    // Safely log the DATABASE_URL
+    try {
+      console.log("DATABASE_URL starts with:", process.env.DATABASE_URL.substring(0, 15) + "...");
+    } catch (error) {
+      console.error("Error logging DATABASE_URL:", error.message);
+      console.log("DATABASE_URL type:", typeof process.env.DATABASE_URL);
+      console.log("DATABASE_URL value:", process.env.DATABASE_URL);
+    }
+    
+    // Ensure DATABASE_URL is a string
+    const dbUrl = String(process.env.DATABASE_URL);
     
     return {
       type: "postgres",
-      url: process.env.DATABASE_URL,
+      url: dbUrl,
       synchronize: false,
       logging: process.env.DEBUG === "true", // Enable logging based on DEBUG flag
       entities: [

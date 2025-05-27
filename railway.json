@@ -12,10 +12,31 @@
     "envVars": [
       {
         "name": "DATABASE_URL",
-        "fromService": {
-          "name": "postgresql",
-          "property": "DATABASE_URL"
-        }
+        "value": "postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@postgres.railway.internal:5432/railway"
+      },
+      {
+        "name": "DATABASE_PUBLIC_URL",
+        "value": "postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@maglev.proxy.rlwy.net:31901/railway"
+      },
+      {
+        "name": "PGHOST",
+        "value": "postgres.railway.internal"
+      },
+      {
+        "name": "PGPORT",
+        "value": "5432"
+      },
+      {
+        "name": "PGDATABASE",
+        "value": "railway"
+      },
+      {
+        "name": "PGUSER",
+        "value": "postgres"
+      },
+      {
+        "name": "PGPASSWORD",
+        "value": "DDzRHavWnatSRwZKlrPRQQfphjKRHEna"
       },
       {
         "name": "NODE_ENV",

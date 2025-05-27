@@ -129,11 +129,44 @@ const testDatabaseConnection = async () => {
 const startMainApplication = async () => {
   // Check if DATABASE_URL is set
   if (!process.env.DATABASE_URL) {
-    console.error('DATABASE_URL is not set! This is required for the application to work.');
-    console.error('Please make sure the DATABASE_URL environment variable is set in Railway.');
-    // Don't set a default here - we want to fail if it's not properly set
+    console.error('DATABASE_URL is not set! Attempting to set a fallback...');
+    
+    // Check if we're running on Railway by looking for DATABASE_PUBLIC_URL
+    if (process.env.DATABASE_PUBLIC_URL) {
+      console.log('Found DATABASE_PUBLIC_URL but no DATABASE_URL. Setting internal URL...');
+      // We're on Railway but the internal URL isn't set correctly
+      process.env.DATABASE_URL = "postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@postgres.railway.internal:5432/railway";
+      console.log('Set DATABASE_URL to Railway internal URL');
+    }
+    // Fallback for Railway - try to construct the URL from individual parts
+    else if (process.env.PGHOST && process.env.PGDATABASE && process.env.PGUSER && process.env.PGPASSWORD) {
+      const pgHost = process.env.PGHOST;
+      const pgPort = process.env.PGPORT || '5432';
+      const pgDatabase = process.env.PGDATABASE;
+      const pgUser = process.env.PGUSER;
+      const pgPassword = process.env.PGPASSWORD;
+      
+      process.env.DATABASE_URL = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}`;
+      console.log('Created DATABASE_URL from individual PostgreSQL environment variables');
+    } else {
+      // Last resort fallback - use the known Railway internal URL
+      process.env.DATABASE_URL = "postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@postgres.railway.internal:5432/railway";
+      console.log('Using hardcoded fallback DATABASE_URL (internal) as last resort');
+    }
+    
+    console.log('DATABASE_URL first 15 chars:', process.env.DATABASE_URL.substring(0, 15) + '...');
   } else {
     console.log('DATABASE_URL is set. First 15 chars:', process.env.DATABASE_URL.substring(0, 15) + '...');
+    
+    // Check if we need to update the URL to use the internal Railway URL
+    if (process.env.DATABASE_URL.includes('maglev.proxy.rlwy.net') && 
+        process.env.NODE_ENV === 'production') {
+      console.log('Detected external URL in production environment. Switching to internal URL...');
+      process.env.DATABASE_URL = process.env.DATABASE_URL
+        .replace('maglev.proxy.rlwy.net:31901', 'postgres.railway.internal:5432');
+      console.log('Updated DATABASE_URL to use internal Railway hostname');
+      console.log('New DATABASE_URL first 15 chars:', process.env.DATABASE_URL.substring(0, 15) + '...');
+    }
   }
   
   // Ensure we're using standard PostgreSQL connection parameters
@@ -180,6 +213,16 @@ const startMainApplication = async () => {
   }
   
   try {
+    // Run database initialization script first
+    console.log('Running database initialization script...');
+    try {
+      require('./dist/scripts/init-railway-db.js');
+      console.log('Database initialization script executed');
+    } catch (initError) {
+      console.error('Error running database initialization script:', initError);
+      console.log('Continuing with application startup...');
+    }
+    
     // Import the main application
     require('./dist/server.js');
     mainAppRunning = true;
