@@ -112,62 +112,100 @@ export const login = async (request: Request, h: ResponseToolkit) => {
 
     // Find user by email with role information
     const userRepository = AppDataSource.getRepository(User);
-    const user = await userRepository.findOne({ 
-      where: { email },
-      relations: ['roleObj']
-    });
+    try {
+      const user = await userRepository
+        .createQueryBuilder('user')
+        .leftJoinAndSelect('user.roleObj', 'role')
+        .where('user.email = :email', { email })
+        .getOne();
+      
+      // If the relation doesn't work, try a direct query
+      if (!user) {
+        return h.response({ message: "Invalid email or password" }).code(401);
+      }
+      
+      // If roleObj is not loaded, try to load it manually
+      if (user && user.roleId && !user.roleObj) {
+        const { Role } = await import('../models');
+        const roleRepository = AppDataSource.getRepository(Role);
+        try {
+          const role = await roleRepository.findOne({ where: { id: user.roleId } });
+          if (role) {
+            user.roleObj = role;
+          }
+        } catch (roleError) {
+          logger.error(`Error loading role: ${roleError}`);
+        }
+      }
 
-    if (!user) {
-      return h.response({ message: "Invalid email or password" }).code(401);
-    }
+      // Check if user is active
+      if (!user.isActive) {
+        return h
+          .response({
+            message:
+              "Your account has been deactivated. Please contact an administrator.",
+          })
+          .code(403);
+      }
 
-    // Check if user is active
-    if (!user.isActive) {
+      // Verify password
+      const isPasswordValid = await comparePassword(password, user.password);
+
+      if (!isPasswordValid) {
+        return h.response({ message: "Invalid email or password" }).code(401);
+      }
+
+      // Generate JWT token
+      const token = generateToken(user);
+
+      // Set dashboard type based on role
+      if (user.roleObj) {
+        user.setDashboardType();
+      } else {
+        // Manually set dashboard type if roleObj is not available
+        const { DashboardType } = await import('../models/Role');
+        switch (user.role) {
+          case 'super_admin':
+            user.dashboardType = DashboardType.SUPER_ADMIN;
+            break;
+          case 'hr':
+            user.dashboardType = DashboardType.HR;
+            break;
+          case 'manager':
+          case 'team_lead':
+            user.dashboardType = DashboardType.MANAGER;
+            break;
+          default:
+            user.dashboardType = DashboardType.EMPLOYEE;
+        }
+      }
+
+      // Remove password from response
+      const { password: _, ...userWithoutPassword } = user;
+
+      // Ensure all necessary fields are included in the response
+      const userResponse = {
+        ...userWithoutPassword,
+        managerId: user.managerId,
+        hrId: user.hrId,
+        teamLeadId: user.teamLeadId,
+        department: user.department,
+        position: user.position,
+        dashboardType: user.dashboardType,
+        roleObj: user.roleObj,
+      };
+
       return h
         .response({
-          message:
-            "Your account has been deactivated. Please contact an administrator.",
+          message: "Login successful",
+          token,
+          user: userResponse,
         })
-        .code(403);
-    }
-
-    // Verify password
-    const isPasswordValid = await comparePassword(password, user.password);
-
-    if (!isPasswordValid) {
+        .code(200);
+    } catch (dbError) {
+      logger.error(`Database error in login: ${dbError}`);
       return h.response({ message: "Invalid email or password" }).code(401);
     }
-
-    // Generate JWT token
-    const token = generateToken(user);
-
-    // Set dashboard type based on role
-    if (user.roleObj) {
-      user.setDashboardType();
-    }
-
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
-
-    // Ensure all necessary fields are included in the response
-    const userResponse = {
-      ...userWithoutPassword,
-      managerId: user.managerId,
-      hrId: user.hrId,
-      teamLeadId: user.teamLeadId,
-      department: user.department,
-      position: user.position,
-      dashboardType: user.dashboardType,
-      roleObj: user.roleObj,
-    };
-
-    return h
-      .response({
-        message: "Login successful",
-        token,
-        user: userResponse,
-      })
-      .code(200);
   } catch (error) {
     logger.error(`Error in login: ${error}`);
     return h

@@ -1,8 +1,20 @@
 import "reflect-metadata";
+// Load environment variables first
+import dotenv from 'dotenv';
+dotenv.config();
+
 // Force set DATABASE_URL for Railway deployment
 try {
-  require('./scripts/set-db-url');
+  // Always load the database URL from the script
+  const dbConfig = require('./scripts/set-db-url');
   console.log('DATABASE_URL has been set manually');
+  
+  // Double-check that it's actually set
+  if (!process.env.DATABASE_URL) {
+    console.error('DATABASE_URL is still not set after loading from script');
+    process.env.DATABASE_URL = dbConfig.DATABASE_URL;
+    console.log('Explicitly set DATABASE_URL from script export');
+  }
 } catch (error) {
   console.error('Error setting DATABASE_URL manually:', error);
 }
@@ -115,44 +127,98 @@ const init = async () => {
       }
     })();
 
-    // Setup default data
+    // First, test the direct database connection
     try {
-      // Ensure the maxSteps column exists in the workflow_categories table
-      const queryRunner = AppDataSource.createQueryRunner();
-      await queryRunner.connect();
+      const directDb = require('./utils/direct-db-connection');
+      const connectionSuccessful = await directDb.testConnection();
       
-      try {
-        // Check if the column already exists
-        const table = await queryRunner.getTable("workflow_categories");
-        const maxStepsColumn = table?.findColumnByName("maxSteps");
-        
-        if (!maxStepsColumn) {
-          logger.info("Adding maxSteps column to workflow_categories table");
-          
-          // Add maxSteps column with default value 3
-          await queryRunner.query(`ALTER TABLE "workflow_categories" ADD COLUMN IF NOT EXISTS "maxSteps" integer NOT NULL DEFAULT 3`);
-          
-          // Update existing categories with specific maxSteps values
-          await queryRunner.query(`UPDATE "workflow_categories" SET "maxSteps" = 2 WHERE "name" = 'Short Leave'`);
-          await queryRunner.query(`UPDATE "workflow_categories" SET "maxSteps" = 3 WHERE "name" = 'Medium Leave'`);
-          await queryRunner.query(`UPDATE "workflow_categories" SET "maxSteps" = 4 WHERE "name" = 'Long Leave'`);
-          await queryRunner.query(`UPDATE "workflow_categories" SET "maxSteps" = 5 WHERE "name" = 'Extended Leave'`);
-          await queryRunner.query(`UPDATE "workflow_categories" SET "maxSteps" = 6 WHERE "name" = 'Long-Term Leave'`);
-          
-          logger.info("Successfully added maxSteps column to workflow_categories table");
-        } else {
-          logger.info("maxSteps column already exists in workflow_categories table");
-        }
-      } finally {
-        // Release the query runner
-        await queryRunner.release();
+      if (!connectionSuccessful) {
+        logger.error("Direct database connection failed, cannot proceed with setup");
+        throw new Error("Database connection failed");
       }
       
-      await setupDefaultData();
-      logger.info("Default data setup completed");
+      logger.info("Direct database connection successful, proceeding with setup");
+      
+      // Initialize the database schema if needed
+      await directDb.initializeSchema();
+      
+      // Now proceed with TypeORM operations only if the database is connected
+      if (AppDataSource.isInitialized) {
+        // Ensure the maxSteps column exists in the workflow_categories table
+        const queryRunner = AppDataSource.createQueryRunner();
+        await queryRunner.connect();
+        
+        try {
+          // Check if the column already exists
+          const table = await queryRunner.getTable("workflow_categories");
+          const maxStepsColumn = table?.findColumnByName("maxSteps");
+          
+          if (!maxStepsColumn) {
+            logger.info("Adding maxSteps column to workflow_categories table");
+            
+            // Add maxSteps column with default value 3
+            await queryRunner.query(`ALTER TABLE "workflow_categories" ADD COLUMN IF NOT EXISTS "maxSteps" integer NOT NULL DEFAULT 3`);
+            
+            // Update existing categories with specific maxSteps values
+            await queryRunner.query(`UPDATE "workflow_categories" SET "maxSteps" = 2 WHERE "name" = 'Short Leave'`);
+            await queryRunner.query(`UPDATE "workflow_categories" SET "maxSteps" = 3 WHERE "name" = 'Medium Leave'`);
+            await queryRunner.query(`UPDATE "workflow_categories" SET "maxSteps" = 4 WHERE "name" = 'Long Leave'`);
+            await queryRunner.query(`UPDATE "workflow_categories" SET "maxSteps" = 5 WHERE "name" = 'Extended Leave'`);
+            await queryRunner.query(`UPDATE "workflow_categories" SET "maxSteps" = 6 WHERE "name" = 'Long-Term Leave'`);
+            
+            logger.info("Successfully added maxSteps column to workflow_categories table");
+          } else {
+            logger.info("maxSteps column already exists in workflow_categories table");
+          }
+        } finally {
+          // Release the query runner
+          await queryRunner.release();
+        }
+        
+        await setupDefaultData();
+        logger.info("Default data setup completed");
+      } else {
+        logger.warn("TypeORM not initialized, skipping TypeORM-specific setup");
+        // Use direct database connection for minimal setup
+        const client = directDb.createClient();
+        await client.connect();
+        
+        try {
+          // Check if workflow_categories table exists
+          const tableResult = await client.query(`
+            SELECT EXISTS (
+              SELECT FROM information_schema.tables 
+              WHERE table_schema = 'public' 
+              AND table_name = 'workflow_categories'
+            )
+          `);
+          
+          if (tableResult.rows[0].exists) {
+            // Check if maxSteps column exists
+            const columnResult = await client.query(`
+              SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_schema = 'public' 
+                AND table_name = 'workflow_categories'
+                AND column_name = 'maxSteps'
+              )
+            `);
+            
+            if (!columnResult.rows[0].exists) {
+              logger.info("Adding maxSteps column to workflow_categories table using direct connection");
+              await client.query(`ALTER TABLE "workflow_categories" ADD COLUMN IF NOT EXISTS "maxSteps" integer NOT NULL DEFAULT 3`);
+              logger.info("Successfully added maxSteps column to workflow_categories table");
+            }
+          }
+          
+          logger.info("Basic setup completed using direct database connection");
+        } finally {
+          await client.end();
+        }
+      }
     } catch (error) {
       logger.error("Error setting up default data:", error);
-      throw error;
+      // Don't throw the error, allow the server to continue running
     }
 
     // Server is already created and routes are registered above

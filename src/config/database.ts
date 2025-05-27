@@ -9,6 +9,19 @@ const getDataSourceConfig = () => {
   // Force load environment variables
   require('dotenv').config();
   
+  // Define entity paths more explicitly to ensure they're loaded correctly
+  const entitiesPath = path.join(__dirname, "../models");
+  console.log("Entities path:", entitiesPath);
+  
+  // List all entity files to ensure they're found
+  try {
+    const fs = require('fs');
+    const entityFiles = fs.readdirSync(entitiesPath);
+    console.log("Entity files found:", entityFiles);
+  } catch (error) {
+    console.error("Error reading entity files:", error);
+  }
+  
   // Check if DATABASE_URL is provided (Railway and other platforms provide this)
   if (process.env.DATABASE_URL) {
     console.log("Using DATABASE_URL for connection");
@@ -19,7 +32,10 @@ const getDataSourceConfig = () => {
       url: process.env.DATABASE_URL,
       synchronize: false,
       logging: true, // Enable logging to debug connection issues
-      entities: [path.join(__dirname, "../models/**/*.{ts,js}")],
+      entities: [
+        path.join(__dirname, "../models/**/*.{ts,js}"),
+        path.join(__dirname, "../models/*.{ts,js}")
+      ],
       migrations: [path.join(__dirname, "../migrations/**/*.{ts,js}")],
       subscribers: [path.join(__dirname, "../subscribers/**/*.{ts,js}")],
       cache: false,
@@ -51,7 +67,10 @@ const getDataSourceConfig = () => {
         url: constructedUrl,
         synchronize: false,
         logging: true,
-        entities: [path.join(__dirname, "../models/**/*.{ts,js}")],
+        entities: [
+          path.join(__dirname, "../models/**/*.{ts,js}"),
+          path.join(__dirname, "../models/*.{ts,js}")
+        ],
         migrations: [path.join(__dirname, "../migrations/**/*.{ts,js}")],
         subscribers: [path.join(__dirname, "../subscribers/**/*.{ts,js}")],
         cache: false,
@@ -75,14 +94,28 @@ const getDataSourceConfig = () => {
     database: config.database.database,
     synchronize: false, // Disable auto-synchronization to prevent data loss
     logging: true, // Enable SQL logging for debugging
-    entities: [path.join(__dirname, "../models/**/*.{ts,js}")],
+    entities: [
+      path.join(__dirname, "../models/**/*.{ts,js}"),
+      path.join(__dirname, "../models/*.{ts,js}")
+    ],
     migrations: [path.join(__dirname, "../migrations/**/*.{ts,js}")],
     subscribers: [path.join(__dirname, "../subscribers/**/*.{ts,js}")],
     cache: false, // Disable metadata caching
   };
 };
 
-export const AppDataSource = new DataSource(getDataSourceConfig() as any);
+// Create the DataSource with more detailed logging
+const dataSourceConfig = getDataSourceConfig() as any;
+console.log("DataSource configuration type:", dataSourceConfig.type);
+console.log("DataSource configuration entities path:", dataSourceConfig.entities);
+console.log("DataSource configuration SSL:", dataSourceConfig.ssl ? "Enabled" : "Disabled");
+
+// If we have a URL, log a portion of it
+if (dataSourceConfig.url) {
+  console.log("DataSource URL starts with:", dataSourceConfig.url.substring(0, 15) + "...");
+}
+
+export const AppDataSource = new DataSource(dataSourceConfig);
 
 export const initializeDatabase = async (): Promise<void> => {
   try {
@@ -97,10 +130,92 @@ export const initializeDatabase = async (): Promise<void> => {
       await AppDataSource.destroy();
     }
 
-    // Initialize the connection
+    // Initialize the connection with more detailed error handling
     logger.info("Initializing database connection...");
-    await AppDataSource.initialize();
-    logger.info("Database connected successfully");
+    console.log("Database URL available:", !!process.env.DATABASE_URL);
+    
+    // First try to connect with a direct pg client to verify the connection parameters
+    let directConnectionSuccessful = false;
+    try {
+      const { Client } = require('pg');
+      const connectionString = process.env.DATABASE_URL || 
+        `postgresql://${process.env.DB_USERNAME || 'postgres'}:${process.env.DB_PASSWORD || 'password'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_DATABASE || 'leave_management'}`;
+      
+      const client = new Client({
+        connectionString,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      });
+      
+      await client.connect();
+      logger.info("Direct pg client connection successful");
+      
+      // Test a simple query
+      const result = await client.query('SELECT current_database() as db_name');
+      logger.info(`Connected to database: ${result.rows[0].db_name}`);
+      
+      await client.end();
+      directConnectionSuccessful = true;
+    } catch (pgError) {
+      logger.error("Direct pg client connection failed:", pgError);
+    }
+    
+    if (!directConnectionSuccessful) {
+      logger.error("Cannot establish direct database connection, TypeORM connection will likely fail");
+    }
+    
+    // Now try to initialize TypeORM
+    try {
+      await AppDataSource.initialize();
+      logger.info("Database connected successfully via TypeORM");
+    } catch (initError) {
+      logger.error("Failed to initialize TypeORM database connection:", initError);
+      
+      // Try to diagnose the issue
+      if (initError.message.includes("getaddrinfo ENOTFOUND")) {
+        logger.error("DNS resolution failed. Check your database host name.");
+      } else if (initError.message.includes("connect ETIMEDOUT")) {
+        logger.error("Connection timed out. Check your network or firewall settings.");
+      } else if (initError.message.includes("password authentication failed")) {
+        logger.error("Authentication failed. Check your database username and password.");
+      } else if (initError.message.includes("database") && initError.message.includes("does not exist")) {
+        logger.error("Database does not exist. Create the database or check the database name.");
+      } else if (initError.message.includes("Driver not Connected")) {
+        logger.error("Driver not connected. This might be due to incorrect connection parameters or the database server is not running.");
+      }
+      
+      // If direct connection was successful but TypeORM failed, we have a TypeORM-specific issue
+      if (directConnectionSuccessful) {
+        logger.warn("Direct database connection works but TypeORM connection failed. This suggests a TypeORM configuration issue.");
+        
+        // Try with a simplified DataSource configuration
+        try {
+          logger.info("Attempting to initialize with simplified DataSource configuration...");
+          
+          const { DataSource } = require("typeorm");
+          const simplifiedConfig = {
+            type: "postgres",
+            url: process.env.DATABASE_URL,
+            synchronize: false,
+            logging: true,
+            entities: [],  // No entities for this test
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+          };
+          
+          const testDataSource = new DataSource(simplifiedConfig as any);
+          await testDataSource.initialize();
+          logger.info("Simplified DataSource initialized successfully");
+          await testDataSource.destroy();
+          
+          // If simplified config works, the issue is likely with the entity definitions
+          logger.warn("The issue appears to be with entity definitions or migrations, not the connection itself");
+        } catch (simplifiedError) {
+          logger.error("Simplified DataSource initialization also failed:", simplifiedError);
+        }
+      }
+      
+      // Rethrow the error to be handled by the caller
+      throw initError;
+    }
 
     // Check if tables exist but don't create or modify them
     // This preserves existing data including HR, managers, and leave types
