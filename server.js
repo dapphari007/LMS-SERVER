@@ -12,13 +12,26 @@ const MAX_DB_CONNECTION_ATTEMPTS = 5;
 
 // Create a simple HTTP server
 const server = http.createServer((req, res) => {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Log all incoming requests
+  console.log(`Received ${req.method} request to ${req.url}`);
+  
+  // Set CORS headers - allow requests from any origin for the health check server
+  const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['*'];
+  const origin = req.headers.origin;
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   
   // Handle OPTIONS requests (preflight)
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS preflight request');
     res.writeHead(204);
     res.end();
     return;
@@ -44,11 +57,18 @@ const server = http.createServer((req, res) => {
   // If the main app is not running and this is an API request, return a more helpful error
   if (!mainAppRunning && path.startsWith('/api')) {
     console.log(`Received API request to ${path} but main app is not running`);
-    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.writeHead(503, { 
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': req.headers.origin || '*',
+      'Access-Control-Allow-Credentials': 'true'
+    });
     res.end(JSON.stringify({ 
       status: 'error',
       message: 'API server is starting up, please try again in a moment',
-      path: path
+      path: path,
+      mainAppRunning: mainAppRunning,
+      mainAppStartAttempted: mainAppStartAttempted,
+      dbConnectionAttempts: dbConnectionAttempts
     }));
     return;
   }
