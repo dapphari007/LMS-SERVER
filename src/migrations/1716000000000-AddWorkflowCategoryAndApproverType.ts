@@ -2,21 +2,25 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddWorkflowCategoryAndApproverType1716000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Create workflow_categories table
-    await queryRunner.query(`
-      CREATE TABLE "workflow_categories" (
-        "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
-        "name" VARCHAR NOT NULL,
-        "description" VARCHAR,
-        "minDays" FLOAT NOT NULL,
-        "maxDays" FLOAT NOT NULL,
-        "isActive" BOOLEAN NOT NULL DEFAULT true,
-        "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_workflow_categories" PRIMARY KEY ("id"),
-        CONSTRAINT "UQ_workflow_categories_name" UNIQUE ("name")
-      )
-    `);
+    // Check if workflow_categories table exists before creating it
+    const tableExists = await queryRunner.hasTable("workflow_categories");
+    if (!tableExists) {
+      // Create workflow_categories table
+      await queryRunner.query(`
+        CREATE TABLE "workflow_categories" (
+          "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
+          "name" VARCHAR NOT NULL,
+          "description" VARCHAR,
+          "minDays" FLOAT NOT NULL,
+          "maxDays" FLOAT NOT NULL,
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_workflow_categories" PRIMARY KEY ("id"),
+          CONSTRAINT "UQ_workflow_categories_name" UNIQUE ("name")
+        )
+      `);
+    }
 
     // Create approver_types table
     await queryRunner.query(`

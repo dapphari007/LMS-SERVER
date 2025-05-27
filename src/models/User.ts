@@ -149,25 +149,31 @@ export class User {
 
   @AfterLoad()
   setDashboardType() {
-    // Set dashboard type based on role object if available, otherwise use default based on role
-    if (this.roleObj && this.roleObj.dashboardType) {
-      this.dashboardType = this.roleObj.dashboardType;
-    } else {
-      // Default mapping based on role
-      switch (this.role) {
-        case UserRole.SUPER_ADMIN:
-          this.dashboardType = DashboardType.SUPER_ADMIN;
-          break;
-        case UserRole.HR:
-          this.dashboardType = DashboardType.HR;
-          break;
-        case UserRole.MANAGER:
-        case UserRole.TEAM_LEAD:
-          this.dashboardType = DashboardType.MANAGER;
-          break;
-        default:
-          this.dashboardType = DashboardType.EMPLOYEE;
+    try {
+      // Set dashboard type based on role object if available, otherwise use default based on role
+      if (this.roleObj && this.roleObj.dashboardType) {
+        this.dashboardType = this.roleObj.dashboardType;
+      } else {
+        // Default mapping based on role
+        switch (this.role) {
+          case UserRole.SUPER_ADMIN:
+            this.dashboardType = DashboardType.SUPER_ADMIN;
+            break;
+          case UserRole.HR:
+            this.dashboardType = DashboardType.HR;
+            break;
+          case UserRole.MANAGER:
+          case UserRole.TEAM_LEAD:
+            this.dashboardType = DashboardType.MANAGER;
+            break;
+          default:
+            this.dashboardType = DashboardType.EMPLOYEE;
+        }
       }
+    } catch (error) {
+      // Fallback to employee dashboard if there's an error
+      console.error("Error setting dashboard type:", error);
+      this.dashboardType = DashboardType.EMPLOYEE;
     }
   }
 }

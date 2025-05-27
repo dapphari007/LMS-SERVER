@@ -306,6 +306,31 @@ export const ensureDatabaseConnection = async (): Promise<void> => {
     // Test the connection with a simple query
     try {
       await AppDataSource.query("SELECT 1");
+      
+      // Check for common database schema issues
+      try {
+        // Check for case sensitivity issues in column names
+        const userColumns = await AppDataSource.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'users'
+        `);
+        
+        // Log column names for debugging
+        logger.info(`User table columns: ${userColumns.map((col: any) => col.column_name).join(', ')}`);
+        
+        // Check for specific columns that might have case sensitivity issues
+        const roleIdColumn = userColumns.find((col: any) => 
+          col.column_name.toLowerCase() === 'roleid');
+        
+        if (roleIdColumn && roleIdColumn.column_name !== 'roleId') {
+          logger.warn(`Found column '${roleIdColumn.column_name}' instead of 'roleId' - case sensitivity issue detected`);
+        }
+        
+      } catch (schemaError) {
+        logger.warn("Error checking database schema:", schemaError);
+      }
+      
     } catch (error) {
       logger.warn("Database connection test failed, reconnecting...");
       await initializeDatabase();
