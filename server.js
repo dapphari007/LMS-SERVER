@@ -127,10 +127,13 @@ const testDatabaseConnection = async () => {
 
 // Function to start the main application
 const startMainApplication = async () => {
-  // Manually set DATABASE_URL if not already set
+  // Check if DATABASE_URL is set
   if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = "postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@maglev.proxy.rlwy.net:31901/railway";
-    console.log('DATABASE_URL has been manually set');
+    console.error('DATABASE_URL is not set! This is required for the application to work.');
+    console.error('Please make sure the DATABASE_URL environment variable is set in Railway.');
+    // Don't set a default here - we want to fail if it's not properly set
+  } else {
+    console.log('DATABASE_URL is set. First 15 chars:', process.env.DATABASE_URL.substring(0, 15) + '...');
   }
   
   // Ensure we're using standard PostgreSQL connection parameters

@@ -31,7 +31,7 @@ const getDataSourceConfig = () => {
       type: "postgres",
       url: process.env.DATABASE_URL,
       synchronize: false,
-      logging: true, // Enable logging to debug connection issues
+      logging: process.env.DEBUG === "true", // Enable logging based on DEBUG flag
       entities: [
         path.join(__dirname, "../models/**/*.{ts,js}"),
         path.join(__dirname, "../models/*.{ts,js}")
@@ -39,13 +39,23 @@ const getDataSourceConfig = () => {
       migrations: [path.join(__dirname, "../migrations/**/*.{ts,js}")],
       subscribers: [path.join(__dirname, "../subscribers/**/*.{ts,js}")],
       cache: false,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      ssl: { rejectUnauthorized: false }, // Always use SSL with rejectUnauthorized: false for Railway
       extra: {
         // Add connection pool settings
         max: 20, // Maximum number of clients in the pool
         connectionTimeoutMillis: 10000, // Connection timeout in milliseconds
-        idleTimeoutMillis: 30000 // How long a client is allowed to remain idle before being closed
-      }
+        idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+        // Add retry logic
+        retry: {
+          retries: 5,
+          factor: 2,
+          minTimeout: 1000,
+          maxTimeout: 10000
+        }
+      },
+      // Add retry logic for connections
+      retryAttempts: 10,
+      retryDelay: 3000
     };
   } else {
     console.log("DATABASE_URL not found, using individual connection parameters");

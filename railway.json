@@ -12,7 +12,10 @@
     "envVars": [
       {
         "name": "DATABASE_URL",
-        "value": "postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@maglev.proxy.rlwy.net:31901/railway"
+        "fromService": {
+          "name": "postgresql",
+          "property": "DATABASE_URL"
+        }
       },
       {
         "name": "NODE_ENV",
