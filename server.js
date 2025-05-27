@@ -257,17 +257,50 @@ const startMainApplication = async () => {
     // Run database initialization script first
     console.log('Running database initialization script...');
     try {
-      require('./dist/scripts/init-railway-db.js');
-      console.log('Database initialization script executed');
+      // Check if the script exists
+      const fs = require('fs');
+      if (fs.existsSync('./dist/scripts/init-railway-db.js')) {
+        require('./dist/scripts/init-railway-db.js');
+        console.log('Database initialization script executed');
+      } else {
+        console.log('Database initialization script not found, skipping');
+      }
     } catch (initError) {
       console.error('Error running database initialization script:', initError);
       console.log('Continuing with application startup...');
     }
     
-    // Import the main application
-    require('./dist/server.js');
-    mainAppRunning = true;
-    console.log('Main application started successfully');
+    // Check if the compiled server file exists
+    const fs = require('fs');
+    if (fs.existsSync('./dist/server.js')) {
+      console.log('Found compiled server.js, starting application...');
+      // Import the main application
+      require('./dist/server.js');
+      mainAppRunning = true;
+      console.log('Main application started successfully');
+    } else {
+      console.error('Compiled server.js not found in dist directory!');
+      console.log('Available files in dist directory:');
+      try {
+        const files = fs.readdirSync('./dist');
+        files.forEach(file => console.log(`- ${file}`));
+      } catch (e) {
+        console.error('Error listing dist directory:', e.message);
+      }
+      
+      // Try to build the application
+      console.log('Attempting to build the application...');
+      try {
+        execSync('npm run build', { stdio: 'inherit' });
+        console.log('Build successful, starting application...');
+        require('./dist/server.js');
+        mainAppRunning = true;
+        console.log('Main application started successfully after build');
+      } catch (buildError) {
+        console.error('Build failed:', buildError.message);
+        console.log('Continuing to run simple health check server');
+      }
+    }
   } catch (error) {
     console.error('Error starting main application:', error);
     console.log('Continuing to run simple health check server');
