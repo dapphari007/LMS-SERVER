@@ -63,14 +63,15 @@ const init = async () => {
         cors: {
           origin: process.env.NODE_ENV === 'production' 
             ? [
+                'https://lms-client-production.up.railway.app', // Railway client URL
                 'https://lms-client-seven-azure.vercel.app', // Your Vercel app domain
                 'https://*.vercel.app', // Allow all subdomains for preview deployments
-                process.env.CLIENT_URL || 'https://your-client-app-name.up.railway.app', // Railway client URL
-                process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []
-              ].flat() 
+                process.env.CLIENT_URL || 'https://lms-client-production.up.railway.app',
+                ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()) : [])
+              ].filter(Boolean).flat() 
             : ["http://localhost:5173"], // In development, allow the Vite dev server
           credentials: true,
-          additionalHeaders: ["Authorization", "Content-Type"],
+          additionalHeaders: ["Authorization", "Content-Type", "X-Requested-With"],
           additionalExposedHeaders: ["Authorization"],
           maxAge: 86400, // 24 hours
         },
