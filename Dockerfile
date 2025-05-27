@@ -17,8 +17,14 @@ COPY .env.railway .env
 # Generate Prisma client
 RUN npx prisma generate
 
+# Create scripts directory
+RUN mkdir -p dist/scripts
+
 # Build the application
 RUN npm run build
+
+# Ensure scripts are copied (in case the build script fails to copy them)
+RUN cp -r src/scripts/*.js dist/scripts/ || true
 
 # Expose the port
 EXPOSE 3000

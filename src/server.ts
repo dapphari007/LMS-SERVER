@@ -50,7 +50,11 @@ const init = async () => {
       routes: {
         cors: {
           origin: process.env.NODE_ENV === 'production' 
-            ? ['*'] // In production, allow all origins (you can restrict this to your specific Railway domains)
+            ? [
+                'https://lms-client-seven-azure.vercel.app', // Your Vercel app domain
+                'https://*.vercel.app', // Allow all subdomains for preview deployments
+                process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []
+              ].flat() 
             : ["http://localhost:5173"], // In development, allow the Vite dev server
           credentials: true,
           additionalHeaders: ["Authorization", "Content-Type"],

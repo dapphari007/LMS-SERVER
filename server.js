@@ -42,6 +42,12 @@ const port = process.env.PORT || 3000;
 server.listen(port, '0.0.0.0', () => {
   console.log(`Simple health check server running on port ${port}`);
   
+  // Manually set DATABASE_URL
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = "postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@maglev.proxy.rlwy.net:31901/railway";
+    console.log('DATABASE_URL has been manually set');
+  }
+  
   // Try to start the main application
   try {
     console.log('Attempting to start main application...');
