@@ -84,6 +84,9 @@ const testDatabaseConnection = async () => {
     // Use a simple pg client to test the connection
     const { Client } = require('pg');
     
+    console.log('Database URL starts with:', process.env.DATABASE_URL.substring(0, 15) + '...');
+    console.log('Attempting to connect to PostgreSQL database...');
+    
     const client = new Client({
       connectionString: process.env.DATABASE_URL,
       ssl: {
@@ -99,10 +102,25 @@ const testDatabaseConnection = async () => {
     const result = await client.query('SELECT NOW() as time');
     console.log(`Database connection successful, server time: ${result.rows[0].time}`);
     
+    // Check database tables
+    console.log('Checking database tables...');
+    const tablesResult = await client.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+      ORDER BY table_name
+    `);
+    
+    console.log('Database tables:');
+    tablesResult.rows.forEach((row, index) => {
+      console.log(`${index + 1}. ${row.table_name}`);
+    });
+    
     await client.end();
     return true;
   } catch (error) {
     console.error('Database connection test failed:', error.message);
+    console.error('Error details:', error);
     return false;
   }
 };

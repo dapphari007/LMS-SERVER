@@ -17,7 +17,17 @@
       {
         "name": "NODE_ENV",
         "value": "production"
+      },
+      {
+        "name": "PGSSLMODE",
+        "value": "require"
+      },
+      {
+        "name": "DEBUG",
+        "value": "true"
       }
-    ]
+    ],
+    "startCommand": "node server.js",
+    "numReplicas": 1
   }
 }
