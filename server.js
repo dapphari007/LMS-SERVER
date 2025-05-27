@@ -2,10 +2,13 @@
 const http = require('http');
 const { spawn } = require('child_process');
 const url = require('url');
+const { execSync } = require('child_process');
 
 // Track if the main application is running
 let mainAppRunning = false;
 let mainAppStartAttempted = false;
+let dbConnectionAttempts = 0;
+const MAX_DB_CONNECTION_ATTEMPTS = 5;
 
 // Create a simple HTTP server
 const server = http.createServer((req, res) => {
@@ -70,8 +73,42 @@ const server = http.createServer((req, res) => {
 // Get port from environment variable or use 3000 as default
 const port = process.env.PORT || 3000;
 
+// Function to test database connection
+const testDatabaseConnection = async () => {
+  if (!process.env.DATABASE_URL) {
+    console.error('DATABASE_URL is not set, cannot test database connection');
+    return false;
+  }
+  
+  try {
+    // Use a simple pg client to test the connection
+    const { Client } = require('pg');
+    
+    const client = new Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      connectionTimeoutMillis: 5000 // 5 second timeout
+    });
+    
+    console.log('Testing database connection...');
+    await client.connect();
+    
+    // Run a simple query to verify the connection
+    const result = await client.query('SELECT NOW() as time');
+    console.log(`Database connection successful, server time: ${result.rows[0].time}`);
+    
+    await client.end();
+    return true;
+  } catch (error) {
+    console.error('Database connection test failed:', error.message);
+    return false;
+  }
+};
+
 // Function to start the main application
-const startMainApplication = () => {
+const startMainApplication = async () => {
   // Manually set DATABASE_URL if not already set
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL = "postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@maglev.proxy.rlwy.net:31901/railway";
@@ -101,6 +138,26 @@ const startMainApplication = () => {
   console.log('Attempting to start main application...');
   mainAppStartAttempted = true;
   
+  // Test database connection before starting the application
+  dbConnectionAttempts++;
+  const dbConnected = await testDatabaseConnection();
+  
+  if (!dbConnected) {
+    console.log(`Database connection failed (attempt ${dbConnectionAttempts} of ${MAX_DB_CONNECTION_ATTEMPTS})`);
+    
+    if (dbConnectionAttempts < MAX_DB_CONNECTION_ATTEMPTS) {
+      console.log(`Retrying in ${dbConnectionAttempts * 2} seconds...`);
+      setTimeout(() => {
+        startMainApplication();
+      }, dbConnectionAttempts * 2000); // Increase delay with each attempt
+      return;
+    } else {
+      console.error('Maximum database connection attempts reached. Starting application anyway...');
+    }
+  } else {
+    console.log('Database connection successful, starting application...');
+  }
+  
   try {
     // Import the main application
     require('./dist/server.js');
@@ -114,6 +171,7 @@ const startMainApplication = () => {
     setTimeout(() => {
       if (!mainAppRunning) {
         console.log('Attempting to restart main application...');
+        dbConnectionAttempts = 0; // Reset connection attempts
         startMainApplication();
       }
     }, 10000); // Try again after 10 seconds
@@ -125,5 +183,7 @@ server.listen(port, '0.0.0.0', () => {
   console.log(`Health check server running on port ${port}`);
   
   // Start the main application
-  startMainApplication();
+  startMainApplication().catch(err => {
+    console.error('Error in startMainApplication:', err);
+  });
 });

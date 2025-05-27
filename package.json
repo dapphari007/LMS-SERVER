@@ -5,6 +5,10 @@
   "scripts": {
     "prestart": "node src/scripts/check-env.js",
     "fix:postgres": "node src/scripts/fix-postgres-config.js",
+    "fix:connection": "node src/scripts/fix-server-connection.js",
+    "test:railway": "node src/scripts/test-railway-connection.js",
+    "check:routes": "node src/scripts/check-api-routes.js",
+    "diagnose": "node src/scripts/diagnose-server.js",
     "start": "node server.js",
     "start:main": "node src/scripts/test-db-connection.js && npx prisma generate && node dist/server.js",
     "test:db": "node src/scripts/test-db-connection.js",
