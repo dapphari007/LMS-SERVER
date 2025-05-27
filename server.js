@@ -78,6 +78,26 @@ const startMainApplication = () => {
     console.log('DATABASE_URL has been manually set');
   }
   
+  // Ensure we're using standard PostgreSQL connection parameters
+  // This helps prevent issues with unrecognized parameters like "db_type"
+  if (process.env.DATABASE_URL) {
+    // Parse the URL to ensure it doesn't have any custom parameters
+    try {
+      const url = new URL(process.env.DATABASE_URL);
+      
+      // Remove any query parameters that might cause issues
+      url.search = '';
+      
+      // Update the DATABASE_URL with the cleaned version
+      if (url.toString() !== process.env.DATABASE_URL) {
+        console.log('Cleaned DATABASE_URL to remove custom parameters');
+        process.env.DATABASE_URL = url.toString();
+      }
+    } catch (error) {
+      console.error('Error parsing DATABASE_URL:', error);
+    }
+  }
+  
   console.log('Attempting to start main application...');
   mainAppStartAttempted = true;
   

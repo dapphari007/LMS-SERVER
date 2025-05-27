@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "prestart": "node src/scripts/check-env.js",
+    "fix:postgres": "node src/scripts/fix-postgres-config.js",
     "start": "node server.js",
     "start:main": "node src/scripts/test-db-connection.js && npx prisma generate && node dist/server.js",
     "test:db": "node src/scripts/test-db-connection.js",
