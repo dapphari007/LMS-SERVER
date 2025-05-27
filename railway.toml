@@ -1,0 +1,20 @@
+# Railway configuration file
+# This file defines the relationships between services
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[env]
+DATABASE_URL = "${RAILWAY_POSTGRESQL_CONNECTION_URL}"
+
+# Define the relationship with the PostgreSQL database
+[[services]]
+name = "postgresql"
