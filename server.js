@@ -78,9 +78,37 @@ const server = http.createServer((req, res) => {
   if (mainAppRunning) {
     // Just let the request pass through - the main app should be handling these
     // This works because we're not actually proxying, the main app is listening on the same port
+    console.log(`Passing through request to ${path} to main application`);
+    return;
+  } else if (path.startsWith('/api/')) {
+    // If it's an API request but the main app isn't running, try to handle it directly
+    console.log(`Received API request to ${path} but main app is not running. Attempting to start main app...`);
+    
+    // Try to start the main app if it hasn't been attempted yet
+    if (!mainAppStartAttempted) {
+      startMainApplication().catch(err => {
+        console.error('Error starting main application:', err);
+      });
+    }
+    
+    // Return a temporary service unavailable response
+    res.writeHead(503, { 
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': req.headers.origin || '*',
+      'Access-Control-Allow-Credentials': 'true',
+      'Retry-After': '5'
+    });
+    res.end(JSON.stringify({ 
+      status: 'error',
+      message: 'API server is starting up, please try again in a moment',
+      path: path,
+      mainAppRunning: mainAppRunning,
+      mainAppStartAttempted: mainAppStartAttempted,
+      dbConnectionAttempts: dbConnectionAttempts
+    }));
     return;
   } else {
-    // If main app is not running, return a 404
+    // If main app is not running and it's not an API request, return a 404
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ 
       status: 'error',
@@ -162,6 +190,10 @@ const testDatabaseConnection = async () => {
 
 // Function to start the main application
 const startMainApplication = async () => {
+  console.log('=== Starting main application ===');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('DATABASE_URL first 15 chars:', process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 15) + '...' : 'not set');
+  console.log('ALLOWED_ORIGINS:', process.env.ALLOWED_ORIGINS || 'not set');
   // Check if DATABASE_URL is set
   if (!process.env.DATABASE_URL) {
     console.error('DATABASE_URL is not set! Attempting to set a fallback...');

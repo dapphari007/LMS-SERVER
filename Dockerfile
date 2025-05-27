@@ -111,8 +111,14 @@ fi \n\
 echo "Running database initialization script..."\n\
 node dist/scripts/init-railway-db.js || echo "Database initialization script failed, continuing anyway"\n\
 \n\
-# Start the server\n\
-echo "Starting server..."\n\
+# Print environment information\n\
+echo "Environment information:"\n\
+echo "NODE_ENV: $NODE_ENV"\n\
+echo "DATABASE_URL: ${DATABASE_URL:0:15}..."\n\
+echo "ALLOWED_ORIGINS: $ALLOWED_ORIGINS"\n\
+\n\
+# Start the server with increased debugging\n\
+echo "Starting server with NODE_OPTIONS: $NODE_OPTIONS"\n\
 exec "$@"' > /app/wait-for-db.sh
 
 # Make the script executable
@@ -125,6 +131,7 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
+ENV NODE_OPTIONS="--max-old-space-size=512 --max-http-header-size=16384"
 # Set database environment variables directly in the Dockerfile as a fallback
 ENV DATABASE_URL="postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@postgres.railway.internal:5432/railway"
 ENV DATABASE_PUBLIC_URL="postgresql://postgres:DDzRHavWnatSRwZKlrPRQQfphjKRHEna@maglev.proxy.rlwy.net:31901/railway"
