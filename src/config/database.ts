@@ -1,22 +1,44 @@
+import "reflect-metadata";
 import { DataSource } from "typeorm";
 import config from "./config";
 import path from "path";
 import logger from "../utils/logger";
 
-export const AppDataSource = new DataSource({
-  type: "postgres",
-  host: config.database.host,
-  port: config.database.port,
-  username: config.database.username,
-  password: config.database.password,
-  database: config.database.database,
-  synchronize: false, // Disable auto-synchronization to prevent data loss
-  logging: false, // Disable SQL logging
-  entities: [path.join(__dirname, "../models/**/*.{ts,js}")],
-  migrations: [path.join(__dirname, "../migrations/**/*.{ts,js}")],
-  subscribers: [path.join(__dirname, "../subscribers/**/*.{ts,js}")],
-  cache: false, // Disable metadata caching
-});
+// Create DataSource configuration based on environment
+const getDataSourceConfig = () => {
+  // Check if DATABASE_URL is provided (Railway and other platforms provide this)
+  if (process.env.DATABASE_URL) {
+    return {
+      type: "postgres",
+      url: process.env.DATABASE_URL,
+      synchronize: false,
+      logging: false,
+      entities: [path.join(__dirname, "../models/**/*.{ts,js}")],
+      migrations: [path.join(__dirname, "../migrations/**/*.{ts,js}")],
+      subscribers: [path.join(__dirname, "../subscribers/**/*.{ts,js}")],
+      cache: false,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
+    };
+  }
+  
+  // Fallback to individual connection parameters
+  return {
+    type: "postgres",
+    host: config.database.host,
+    port: config.database.port,
+    username: config.database.username,
+    password: config.database.password,
+    database: config.database.database,
+    synchronize: false, // Disable auto-synchronization to prevent data loss
+    logging: false, // Disable SQL logging
+    entities: [path.join(__dirname, "../models/**/*.{ts,js}")],
+    migrations: [path.join(__dirname, "../migrations/**/*.{ts,js}")],
+    subscribers: [path.join(__dirname, "../subscribers/**/*.{ts,js}")],
+    cache: false, // Disable metadata caching
+  };
+};
+
+export const AppDataSource = new DataSource(getDataSourceConfig() as any);
 
 export const initializeDatabase = async (): Promise<void> => {
   try {

@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import Hapi from "@hapi/hapi";
 import Joi from "joi";
 import { registerPlugins } from "./plugins";

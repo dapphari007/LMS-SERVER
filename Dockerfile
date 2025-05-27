@@ -5,8 +5,8 @@ WORKDIR /app
 # Copy package files first
 COPY package*.json ./
 
-# Install dependencies with specific flags to handle Prisma
-RUN npm install --no-optional --legacy-peer-deps
+# Install dependencies including reflect-metadata
+RUN npm install
 
 # Copy the rest of the application
 COPY . .
@@ -21,4 +21,4 @@ RUN npm run build
 EXPOSE 3000
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["node", "dist/server.js"]
