@@ -89,12 +89,20 @@ const init = async () => {
     }
 
     // Create Hapi server
+    // Railway sets PORT environment variable, so use that if available
+    const port = process.env.PORT || config.server.port;
+    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : config.server.host;
+    
+    console.log(`Starting server on ${host}:${port} in ${process.env.NODE_ENV} mode`);
+    
     const server = Hapi.server({
-      port: config.server.port,
-      host: config.server.host,
+      port: port,
+      host: host,
       routes: {
         cors: {
-          origin: ["http://localhost:5173"], // Allow the Vite dev server
+          origin: process.env.NODE_ENV === 'production' 
+            ? ['*'] // In production, allow all origins (you can restrict this to your specific Railway domains)
+            : ["http://localhost:5173"], // In development, allow the Vite dev server
           credentials: true,
           additionalHeaders: ["Authorization", "Content-Type"],
           additionalExposedHeaders: ["Authorization"],

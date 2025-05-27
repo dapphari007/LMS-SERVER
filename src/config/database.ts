@@ -8,16 +8,23 @@ import logger from "../utils/logger";
 const getDataSourceConfig = () => {
   // Check if DATABASE_URL is provided (Railway and other platforms provide this)
   if (process.env.DATABASE_URL) {
+    console.log("Using DATABASE_URL for connection");
     return {
       type: "postgres",
       url: process.env.DATABASE_URL,
       synchronize: false,
-      logging: false,
+      logging: true, // Enable logging to debug connection issues
       entities: [path.join(__dirname, "../models/**/*.{ts,js}")],
       migrations: [path.join(__dirname, "../migrations/**/*.{ts,js}")],
       subscribers: [path.join(__dirname, "../subscribers/**/*.{ts,js}")],
       cache: false,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      extra: {
+        // Add connection pool settings
+        max: 20, // Maximum number of clients in the pool
+        connectionTimeoutMillis: 10000, // Connection timeout in milliseconds
+        idleTimeoutMillis: 30000 // How long a client is allowed to remain idle before being closed
+      }
     };
   }
   
@@ -42,12 +49,19 @@ export const AppDataSource = new DataSource(getDataSourceConfig() as any);
 
 export const initializeDatabase = async (): Promise<void> => {
   try {
+    // Log connection attempt
+    logger.info("Attempting to connect to database...");
+    console.log("Database URL:", process.env.DATABASE_URL ? "Using DATABASE_URL (value hidden for security)" : "Not using DATABASE_URL");
+    console.log("NODE_ENV:", process.env.NODE_ENV);
+    
     // If the connection is already established, close it first
     if (AppDataSource.isInitialized) {
+      logger.info("Closing existing database connection");
       await AppDataSource.destroy();
     }
 
     // Initialize the connection
+    logger.info("Initializing database connection...");
     await AppDataSource.initialize();
     logger.info("Database connected successfully");
 
